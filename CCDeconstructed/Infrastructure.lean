@@ -347,6 +347,8 @@ namespace Typ
        WellScoping.WellScoped C ->
        WellScoped (.cap S C)
 
+  #check WellScoped.rec
+
   @[aesop safe forward]
   lemma WellScopedRec_instantiateRecTyp :
     WellScopedRec n (instantiateRecTyp T n U) ->
@@ -599,20 +601,23 @@ namespace Exp
         WellScopedRec (n + 1) e2 ->
         WellScopedRec n (.let e1 e2)
 
-  -- /-
+  /-
   inductive Scope {i} {α : VarCat i} (F : Var α -> Prop) : Prop where
-    | intro (L : Finset (Atom α)) : ∀ x ∉ L, F (.free x) -> Scope F
+    | intro (L : Finset (Atom α)) : (∀ x ∉ L, F (.free x)) -> Scope F
 
   section
     open Lean.TSyntax.Compat
     macro "⦃" x:ident " | " b:term "⦄" : term => `(Scope (fun $x => $b))
   end
-  -- -/
+  -/
 
   /-
   def Scope {i} (β : VarCat i) [s : Scoped α β] [Coe (Var β) (VarCat.type β)] (f : α -> Prop) (e : α) : Prop :=
     ∃ L : Finset (Atom β), ∀ x ∉ L, f (@Scoped.instantiate α i β s e (@Var.free i β x))
   -/
+
+  def Scope {i} {β : VarCat i} (F : Atom β -> Prop) (L : Finset (Atom β)) : Prop :=
+    ∀ x ∉ L, F x
 
   @[aesop unsafe constructors 50%]
   inductive WellScoped {i : CC} : Exp i -> Prop :=
@@ -621,15 +626,16 @@ namespace Exp
         WellScoped (.var v)
     | abs :
         Typ.WellScoped T ->
-        ⦃ x | WellScoped (e.instantiateRecVar 0 x) ⦄ ->
+        -- ⦃ x | WellScoped (e.instantiateRecVar 0 x) ⦄ ->
         WellScoped (.abs T e)
     | app :
         Var.WellScoped f ->
         Var.WellScoped e ->
         WellScoped (.app f e)
-    | tabs :
+    | tabs (L : Finset (Atom (.tvar i))) e :
         Typ.WellScoped T ->
-        Scope (.tvar i) WellScoped e ->
+        Scope (fun X => WellScoped (e.instantiateRecTyp 0 X)) L ->
+        -- (∃ L : Finset (Atom (.tvar i)), ∀ X ∉ L, WellScoped (e.instantiateRecTyp 0 X)) ->
         WellScoped (.tabs T e)
     | tapp :
         Var.WellScoped f ->
@@ -637,7 +643,7 @@ namespace Exp
         WellScoped (.tapp f T)
     | let (L : Finset (Atom (.var i))) :
         WellScoped e1 ->
-        Scope (.var i) WellScoped e2 ->
+        -- Scope (.var i) WellScoped e2 ->
         WellScoped (.let e1 e2)
 
   instance : WellScoping (Exp i) where

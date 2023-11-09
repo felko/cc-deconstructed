@@ -57,7 +57,6 @@ namespace Assoc
       Assoc.fromSigma p1 = Assoc.fromSigma p2 →
       p1 = p2
     := by
-      rename_i i
       intros eq
       cases p1; rename_i x b1; cases p2; rename_i y b2
       cases x; rename_i c x; cases y; rename_i d y
