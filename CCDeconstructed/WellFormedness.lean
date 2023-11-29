@@ -150,7 +150,7 @@ namespace Typ
     induction WF
     · case var X T Δ X.Mem =>
       apply WellFormed.var (S := T)
-      apply Env.mem_tail X.Mem
+      apply Env.mem_concat_right X.Mem
     · case top => constructor
     · case arr Δ T U L T.WF U.WF T.IH U.IH =>
       apply WellFormed.arr L T.IH
@@ -177,12 +177,17 @@ namespace Typ
     induction WF
     · case var X T Δ X.Mem =>
       apply WellFormed.var (S := T)
-      apply Env.mem_cons_tail
-      · exact Γ
-      · simp
-        intros Eq
-        cases
-        apply HEq
+      apply Env.mem_cons_tail _ X.Mem
+      simp
+      intros Eq
+      cases decEq (Assoc.binder a).cat (Assoc.binder (X <: T)).cat
+      · case isFalse Neq.cat =>
+        cases a <;> simp [Assoc.binder] at Neq.cat Eq
+        rename_i y U
+
+      cases a <;> cases Eq
+      cases Eq
+      apply HEq
 
 
     · case top => constructor

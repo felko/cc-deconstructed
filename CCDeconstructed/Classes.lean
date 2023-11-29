@@ -93,4 +93,5 @@ class WellFormedness (i : CC) (α : Type) extends WellScopedness α where
   WellFormed_weaken_head :
     WellFormed Γ t →
     WellFormed (Γ ▷ a) t
-  := sorry
+  := by
+    apply WellForm
