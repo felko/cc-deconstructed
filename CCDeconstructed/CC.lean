@@ -11,7 +11,7 @@ inductive Feature :=
 
 open Feature
 
-class inductive HasFeature : CC -> Feature -> Prop :=
+class inductive HasFeature : CC → Feature → Prop :=
   | cc0_has_box_type               : HasFeature cc0 box_type
   | cc0_has_explicit_boxing        : HasFeature cc0 explicit_boxicc
 
@@ -39,7 +39,7 @@ attribute [instance]
   HasFeature.cc3_has_sealed_type_parameters
   HasFeature.cc3_has_type_bindings
 
-class Embed.{u} (i : CC) (j : CC) (F : CC -> Sort u) :=
-  embed : F i -> F j
+class Embed.{u} (i : CC) (j : CC) (F : CC → Sort u) :=
+  embed : F i → F j
 
 notation:0 "⟦" t:0 "⟧" => Embed.embed t

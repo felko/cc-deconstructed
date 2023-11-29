@@ -7,28 +7,30 @@ import Std.Classes.SetNotation
 import Mathlib.Data.Finset.Basic
 import Mathlib.Tactic.Linarith
 
-import CCDeconstructed.Syntax
+import CCDeconstructed.Env
 
-class WellScoping (α : Type) where
-  WellScopedRec : Nat -> α -> Prop
+attribute [simp,aesop norm unfold] Coe.coe
+
+class WellScopedness (α : Type) where
+  WellScopedRec : Nat → α → Prop
   WellScoped := WellScopedRec 0
   WellScoped_implies_WellScopedRec_0 :
-    WellScoped t -> WellScopedRec 0 t
+    WellScoped t → WellScopedRec 0 t
   WellScopedRec_weaken :
-    m <= n ->
-    WellScopedRec m t ->
+    m <= n →
+    WellScopedRec m t →
     WellScopedRec n t
 
 attribute [simp,aesop norm unfold]
-  WellScoping.WellScopedRec
-  WellScoping.WellScoped
+  WellScopedness.WellScopedRec
+  WellScopedness.WellScoped
 attribute [aesop unsafe forward 50%]
-  WellScoping.WellScoped_implies_WellScopedRec_0
+  WellScopedness.WellScoped_implies_WellScopedRec_0
 attribute [aesop unsafe forward 20%]
-  WellScoping.WellScopedRec_weaken
+  WellScopedness.WellScopedRec_weaken
 
 class FreeVariables (α : Type) (β : VarCat i) where
-  fv : α -> Finset (Atom β)
+  fv : α → Finset (Atom β)
 
 open FreeVariables
 
@@ -46,18 +48,18 @@ def VarCat.type (α : VarCat i) : Type :=
 open VarCat
 
 set_option synthInstance.checkSynthOrder false
-class Scoped (α : Type) (β : VarCat i) extends WellScoping α, FreeVariables α β where
-  instantiateRec : α -> Index β -> type β -> α
-  substitute : α -> Atom β -> type β -> α
+class Scoped (α : Type) (β : VarCat i) extends WellScopedness α, FreeVariables α β where
+  instantiateRec : α → Index β → type β → α
+  substitute : α → Atom β → type β → α
   substitute_fresh :
-    x ∉ fv t ->
+    x ∉ fv t →
     substitute t x u = t
   WellScopedRec_instantiateRec :
-    WellScopedRec n (instantiateRec t n u) ->
+    WellScopedRec n (instantiateRec t n u) →
     WellScopedRec (n + 1) t
   instantiateRec_WellScopedRec :
-    WellScopedRec n t ->
-    k >= n ->
+    WellScopedRec n t →
+    k >= n →
     instantiateRec t k u = t
 
 attribute [simp]
@@ -72,10 +74,23 @@ def Scoped.instantiate [Scoped α β] (t : α) (u : type β) : α := instantiate
 
 @[simp]
 lemma instantiateRec_WellScoped [s : Scoped α β] :
-  s.WellScoped t ->
+  s.WellScoped t →
   s.instantiateRec t k u = t
 := by
   intros H
   apply s.instantiateRec_WellScopedRec
   · apply s.WellScoped_implies_WellScopedRec_0 H
   · linarith
+
+class WellFormedness (i : CC) (α : Type) extends WellScopedness α where
+  WellFormed : Env i → α → Prop
+  WellFormed_WellScoped :
+    WellFormed Γ t →
+    WellScoped t
+  WellFormed_weaken :
+    WellFormed Δ t →
+    WellFormed (Γ ++ Δ) t
+  WellFormed_weaken_head :
+    WellFormed Γ t →
+    WellFormed (Γ ▷ a) t
+  := sorry
