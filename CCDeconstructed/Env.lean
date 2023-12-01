@@ -2,54 +2,323 @@ import CCDeconstructed.CC
 import CCDeconstructed.Var
 import CCDeconstructed.Syntax
 
-import Mathlib.Data.List.AList
+import Mathlib.Data.Finset.Basic
 
 set_option linter.unusedVariables false
 
 open VarCat Feature
 
-namespace AList
-  lemma insert_erase.{u}
-    {α : Type u} {β : α → Type} [DecidableEq α]
-    {a a' : α} (s : AList β) (b : β a) :
-    a ≠ a' →
-    AList.insert a b (AList.erase a' s) =
-    AList.erase a' (AList.insert a b s)
-  := by
-    intros Neq
-    simp [AList.insert,AList.erase]
-    rw [List.kerase_cons_ne (Neq ∘ Eq.symm)]
-    congr 1
-    apply List.kerase_kerase
+inductive Binding {i : CC} : VarCat i → Type where
+  | val : Binding (.var i)
+  | sub : Binding (.tvar i)
+  | typ [HasFeature i type_bindings] : Binding (.tvar i)
 
-  lemma erase_of_not_mem.{u, v} {α : Type u} {β : α → Type v} [DecidableEq α] {a : α} {s : AList β} :
-    a ∉ s →
-    AList.erase a s = s
+set_option genInjectivity false
+@[aesop safe [constructors, cases]]
+structure Assoc (i : CC) where
+  cat : VarCat i
+  name : Atom cat
+  binding : Binding cat
+  type : Typ i
+
+namespace Assoc
+  @[simp]
+  def val (x : Atom (.var i)) (T : Typ i) : Assoc i :=
+    ⟨_, x, .val, T⟩
+
+  def sub (X : Atom (.tvar i)) (S : Typ i) : Assoc i :=
+    ⟨_, X, .sub, S⟩
+
+  def typ (X : Atom (.tvar i)) (T : Typ i) : Assoc i :=
+    ⟨_, X, .typ, T⟩
+
+  infix:80 " ⦂ " => val
+  infix:80 " <: " => sub
+  infix:80 " ≔ " => typ
+
+  def dom (a : Assoc i) {α : VarCat i} : Finset (Atom α) :=
+    if h : a.cat = α then
+      {h ▸ a.name}
+    else
+      ∅
+
+  @[simp]
+  lemma pseudo_inj :
+    (⟨α, x, b, T⟩ : Assoc i) = ⟨α', x', b', T'⟩ ↔
+      if h : α = α' then
+         x = h ▸ x' ∧
+         b = h ▸ b' ∧
+         T = T'
+      else
+        False
   := by
-    intros NotIn
-    obtain ⟨entries,nodupKeys⟩ := s
-    induction entries
-    · case nil => simp [AList.erase]
-    · case cons b s.entries IH =>
-      simp [AList.erase,List.kerase,List.eraseP]
+    split
+    · case inl Eq.cat =>
+      cases Eq.cat
+      simp
+      apply Iff.intro
+      · case mp =>
+        intros Eq.assoc
+        injection Eq.assoc with _ Eq.name Eq.binding Eq.type
+        exact ⟨Eq.name, ⟨Eq.binding, Eq.type⟩⟩
+      · case mpr =>
+        intros Eqs
+        obtain ⟨Eq.name, ⟨Eq.binding, Eq.type⟩⟩ := Eqs
+        rw [Eq.name,Eq.binding,Eq.type]
+    · case inr Neq.cat =>
+      apply Iff.intro _ False.rec
+      intros Eq.assoc
+      injection Eq.assoc with Eq.cat _ _ _
+      exact Neq.cat Eq.cat
+end Assoc
+
+def Env (i : CC) : Type := List (Assoc i)
+
+namespace Env
+  @[match_pattern]
+  def nil : Env i := []
+
+  @[match_pattern]
+  def cons (Γ : Env i) (a : Assoc i) : Env i :=
+    a :: Γ
+
+  infixl:70 " ▷ " => cons
+
+  def concat (Γ Δ : Env i) : Env i :=
+    List.append Δ Γ
+
+  def Key (i : CC) :=
+    Σ (α : VarCat i), Atom α
+
+  def keys : Env i → List (Key i)
+    | .nil => .nil
+    | Γ ▷ ⟨α, x, _, _⟩ => ⟨α, x⟩ :: keys Γ
+
+  def dom (Γ : Env i) {α : VarCat i} : Finset (Atom α) :=
+    List.foldl (· ∪ Assoc.dom ·) ∅ Γ
+
+  instance instEmptyCollection : EmptyCollection (Env i) where
+    emptyCollection := nil
+
+  @[simp]
+  instance instMembership : Membership (Assoc i) (Env i) := List.instMembershipList
+
+  @[simp]
+  instance instAppend : Append (Env i) where
+    append := concat
+
+  @[elab_as_elim, eliminator]
+  def rec.{u} {motive : Env i → Sort u}
+    (nil : motive ∅)
+    (cons : ∀ (Γ : Env i) (a : Assoc i),
+            motive Γ →
+            motive (Γ ▷ a))
+    : (Γ : Env i) → motive Γ
+    | .nil => nil
+    | Γ ▷ a => cons Γ a (rec nil cons Γ)
+
+  @[simp]
+  lemma nil_concat {Γ : Env i} :
+    ∅ ++ Γ = Γ
+  := by
+    simp [Env,HAppend.hAppend,concat,Append.append]
+    rw [List.append_nil]
+
+  @[simp]
+  lemma concat_nil {Γ : Env i} :
+    Γ ++ ∅ = Γ
+  := by rfl
+
+  @[simp]
+  lemma concat_singleton {Γ : Env i} :
+    Γ ++ ∅ ▷ a = Γ ▷ a
+  := by rfl
+
+  @[simp]
+  lemma concat_cons {Γ : Env i} :
+    Γ ++ Δ ▷ a = (Γ ++ Δ) ▷ a
+  := by rfl
+
+
+  @[simp]
+  lemma dom_nil {α : VarCat i} :
+    dom (α := α) ∅ = ∅
+  := by rfl
+
+  @[simp]
+  lemma dom_cons {α : VarCat i} (Γ : Env i) (a : Assoc i) :
+    dom (Γ ▷ a) (α := α) = dom Γ ∪ Assoc.dom a
+  := by
+    induction Γ using List.reverseRecOn
+    · case H0 =>
+      simp [dom,cons,List.foldl]
+    · case H1 Γ b IH =>
+      simp [dom,cons] at *
+      rw [IH]
+      simp
+      congr 1
+      apply Finset.union_comm
+
+  @[simp]
+  lemma dom_concat {α : VarCat i} (Γ Δ : Env i) :
+    dom (Γ ++ Δ) (α := α) = dom Γ ∪ dom Δ
+  := by
+    induction Δ <;> simp
+    case cons Δ a IH =>
+    simp [IH]
+
+  @[simp]
+  lemma mem_nil {a : Assoc i} :
+    a ∉ (∅ : Env i)
+  := by
+    simp [List.instMembershipList]
+    intros mem
+    cases mem
+
+  @[simp]
+  lemma mem_cons {a : Assoc i} :
+    a ∈ Γ ▷ b ↔ a ∈ Γ ∨ a = b
+  := by
+    simp [cons]
+    rw [List.mem_cons]
+    rw [Or.comm]
+
+  @[simp]
+  lemma mem_concat {a : Assoc i} {Γ Δ : Env i}:
+    a ∈ Γ ++ Δ ↔ a ∈ Γ ∨ a ∈ Δ
+  := by
+    simp [HAppend.hAppend,concat,Append.append]
+    rw [List.mem_append]
+    rw [Or.comm]
+
+  @[simp]
+  lemma keys_mem_iff {Γ : Env i} {α : VarCat i} {x : Atom α} :
+    ⟨α, x⟩ ∈ keys Γ ↔ ∃ b T, ⟨_, x, b, T⟩ ∈ Γ
+  := by
+    induction Γ
+    · case nil => simp [keys]
+    · case cons Γ a IH =>
+      obtain ⟨β, y, c, U⟩ := a
+      simp [dom_cons,Assoc.dom,keys]
       split
-      · case inl eq =>
-        exfalso
-        apply NotIn
-        simp [Membership.mem,AList.keys]
-        rw [eq]
-        apply List.Mem.head
-      · case inr neq =>
-        simp [AList.erase,List.kerase] at IH
-        rw [IH]
-        · exact nodupKeys.tail
-        · simp [Membership.mem,AList.keys] at *
-          intros mem
-          apply NotIn
-          apply List.Mem.tail
-          apply mem
-end AList
+      · case inl Eq.cat =>
+        cases Eq.cat
+        cases decEq x y
+        · case isFalse Neq.name =>
+          simp [Neq.name,keys]
+          apply Iff.intro
+          · case mp =>
+            intros Eqs
+            cases Eqs
+            · case inl Eq.keys =>
+              injection Eq.keys with _ Eq.name
+              exfalso
+              exact (Neq.name Eq.name)
+            · case inr x.In =>
+              apply IH.mp x.In
+          · case mpr =>
+            intros x.In
+            apply Or.inr
+            apply IH.mpr x.In
+        · case isTrue Eq.name =>
+          cases Eq.name
+          simp
+          exists c, U
+          simp
+      · case inr Neq.cat =>
+        simp
+        apply Iff.intro
+        · case mp =>
+          intros x.In
+          rcases x.In with ⟨Eq.x⟩ | ⟨x.In⟩
+          · exfalso
+            apply Neq.cat
+            injection Eq.x with Eq.cat _
+          · apply IH.mp x.In
+        · case mpr =>
+          intros x.In
+          obtain ⟨b, ⟨T, x.In⟩⟩ := x.In
+          apply Or.inr
+          apply IH.mpr
+          exists b, T
 
+  @[simp]
+  lemma dom_mem_iff {Γ : Env i} {α : VarCat i} {x : Atom α} :
+    x ∈ dom Γ (α := α) ↔ ∃ b T, ⟨_, x, b, T⟩ ∈ Γ
+  := by
+    induction Γ
+    · case nil => simp
+    · case cons Γ a IH =>
+      obtain ⟨β, y, c, U⟩ := a
+      simp [dom_cons,Assoc.dom]
+      split
+      · case inl Eq.cat =>
+        cases Eq.cat
+        cases decEq x y
+        · case isFalse Neq.name =>
+          simp [Neq.name]
+          exact IH
+        · case isTrue Eq.name =>
+          cases Eq.name
+          simp
+          exists c, U
+          simp
+      · case inr Neq.cat =>
+        replace Neq.cat : α ≠ β := Neq.cat ∘ Eq.symm
+        simp [Neq.cat]
+        exact IH
+
+  @[simp]
+  lemma dom_keys {Γ : Env i} {α : VarCat i} {x : Atom α} :
+    x ∈ dom Γ (α := α) ↔ ⟨_, x⟩ ∈ keys Γ
+  := by
+    induction Γ
+    · case nil => simp
+    · case cons Γ a IH =>
+      obtain ⟨β, y, c, U⟩ := a
+      simp [dom_cons,Assoc.dom]
+      split
+      · case inl Eq.cat =>
+        cases Eq.cat
+        cases decEq x y
+        · case isFalse Neq.name =>
+          simp [Neq.name]
+        · case isTrue Eq.name =>
+          cases Eq.name
+          simp
+          exists c, U
+          simp
+      · case inr Neq.cat =>
+        replace Neq.cat : α ≠ β := Neq.cat ∘ Eq.symm
+        simp [Neq.cat]
+
+  @[aesop norm]
+  def Nodup (Γ : Env i) :=
+    List.Nodup (keys Γ)
+
+  namespace Nodup
+    @[simp]
+    lemma nil :
+      Nodup (∅ : Env i)
+    := by simp [Nodup,keys]
+
+    @[simp]
+    lemma cons {Γ : Env i} {a : Assoc i} :
+      Nodup Γ ->
+      a.name ∉ dom Γ →
+      Nodup (Γ ▷ a)
+    := by
+      intros Γ.Nodup a.NotIn
+      simp [Nodup,cons,keys]
+      apply And.intro _ Γ.Nodup
+      intros b T
+      obtain NotIn := dom_mem_iff.not.mp a.NotIn
+      intros a.In
+      apply NotIn ⟨b, ⟨T, a.In⟩⟩
+  end Nodup
+end Env
+
+/-
 namespace Atom
   @[aesop safe [constructors, cases]]
   inductive HasName {α : VarCat i} : Atom α → {β : VarCat i} → Atom β → Prop where
@@ -1021,7 +1290,28 @@ namespace Env
       rename_i IH
       split <;> simp [IH]
     }
+
+  def Disjoint (Γ Δ : Env i) :=
+    AList.Disjoint Γ Δ
+
+  @[simp]
+  lemma Disjoint_empty {Γ : Env i} :
+    Disjoint Γ ∅
+  := by simp [Disjoint,AList.Disjoint]
+
+  @[simp]
+  lemma Disjoint_comm {Γ Δ : Env i} :
+    Disjoint Γ Δ ⇔ Disjoint Δ Γ
+  := by
+    simp [Disjoint,AList.Disjoint]
+    aesop
+
+  @[simp]
+  lemma Disjoint
+
 end Env
+
+-/
 
 attribute [irreducible] Env
 

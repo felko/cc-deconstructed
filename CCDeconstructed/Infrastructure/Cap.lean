@@ -81,7 +81,7 @@ namespace Cap
     intros leq C.WS v v.In
     apply Var.WellScopedRec_weaken <;> aesop
 
-  instance instWellScopedness : WellScopedness (Cap i) where
+  instance instWellScopednessInfrastructure : WellScopedness.Infrastructure (Cap i) where
     WellScopedRec := WellScopedRec
     WellScoped := WellScoped
     WellScoped_implies_WellScopedRec_0 := WellScoped_implies_WellScopedRec_0
@@ -115,7 +115,7 @@ namespace Cap
   := by aesop
 
   @[simp]
-  instance instScoped : Scoped (Cap i) (var i) where
+  instance instScopedInfrastructure : Scoped.Infrastructure (Cap i) (var i) where
     instantiateRec := instantiateRec
     substitute := substitute
     substitute_fresh := substitute_fresh

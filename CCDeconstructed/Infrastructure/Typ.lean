@@ -98,13 +98,21 @@ namespace Typ
        Cap.WellScopedRec n C →
        WellScopedRec n (.cap S C)
 
+  instance instScopedTyp : Scoped (Typ i) (.tvar i) where
+    instantiateRec := instantiateRecTyp
+    substitute := substituteTyp
+
+  instance instScopedVar : Scoped (Typ i) (.var i) where
+    instantiateRec := instantiateRecVar
+    substitute := substituteVar
+
   @[aesop unsafe [constructors 50%]]
   inductive WellScoped {i : CC} : Typ i → Prop :=
     | top : WellScoped .top
     | var : Var.WellScoped (allowCap := false) V → WellScoped (.var V)
-    | arr (L : Finset (Atom (.var i))) :
+    | arr : ∀ {T U : Typ i},
         WellScoped T →
-        (∀ (x : Atom (.var i)), x ∉ L → WellScoped (U.instantiateRecVar 0 (.free x))) →
+        Scope (.var i) WellScoped U →
         WellScoped (.arr T U)
     | all (L : Finset (Atom (tvar i))) :
         WellScoped S →
@@ -188,7 +196,7 @@ namespace Typ
     induction' WS generalizing n <;> constructor <;> aesop
     linarith
 
-  instance instWellScopedness : WellScopedness (Typ i) where
+  instance instWellScopedness.Infrastructure : WellScopedness.Infrastructure (Typ i) where
     WellScopedRec := WellScopedRec
     WellScoped := WellScoped
     WellScoped_implies_WellScopedRec_0 := WellScoped_implies_WellScopedRec_0
@@ -210,9 +218,7 @@ namespace Typ
     induction WS generalizing K <;> aesop
     exfalso; linarith
 
-  instance instScoped : Scoped (Typ i) (tvar i) where
-    instantiateRec := instantiateRecTyp
-    substitute := substituteTyp
+  instance instScopedInfrastructureTyp : Scoped.Infrastructure (Typ i) (tvar i) where
     substitute_fresh := substituteTyp_fresh
     instantiateRec_WellScopedRec := instantiateRecTyp_WellScopedRec
     WellScopedRec_instantiateRec := WellScopedRec_instantiateRecTyp
@@ -245,7 +251,7 @@ namespace Typ
     intros WS geq
     induction WS generalizing k <;> aesop
 
-  instance : Scoped (Typ i) (.var i) where
+  instance instScopedInfrastructureVar : Scoped.Infrastructure (Typ i) (.var i) where
     instantiateRec := instantiateRecVar
     substitute := substituteVar
     substitute_fresh := substituteVar_fresh
