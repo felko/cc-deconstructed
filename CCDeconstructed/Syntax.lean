@@ -25,7 +25,7 @@ inductive Exp (i : CC) where
   | var : Var (var i) → Exp i
   | abs : Typ i → Exp i → Exp i
   | app : Var (var i) → Var (var i) → Exp i
-  | tabs : Typ i → Exp i → Exp i
+  | tabs : TypevarKind i → Typ i → Exp i → Exp i
   | tapp : Var (var i) → Typ i → Exp i
   | let_ : Exp i → Exp i → Exp i
   | type [HasFeature i type_bindings] : Typ i → Exp i → Exp i

@@ -21,11 +21,27 @@ def gatherAtoms {i : Q(CC)} (β : Q(VarCat $i)) : TacticM Q(Finset (Atom $β)) :
 
 def evalPickFresh {i : Q(CC)} {qβ : Q(VarCat $i)} (x : TSyntax `ident) (qL : Q(Finset (Atom $qβ))) := do
   let FrIdent := mkIdent (.str (.str .anonymous x.getId.toString) "Fresh")
+  let L ← runTermElab qL.toSyntax
   evalTactic (← `(tactic|
-    cases (Atom.freshFor $(← runTermElab qL.toSyntax));
+    cases (Atom.freshFor $L);
     rename_i $x:ident $FrIdent:ident;
     try simp only [Finset.union_empty,Finset.empty_union,Finset.union_assoc,FreeVariables.fv,id] at $FrIdent:ident;
   ))
+
+syntax (name := gather_atoms)
+  "gather_atoms" ident ":" term : tactic
+
+elab_rules (kind := gather_atoms) : tactic
+  | `(tactic| gather_atoms $x:ident : $β:term) =>
+      withMainContext do
+        let qi : Q(CC) ← mkFreshExprMVar (type? := q(CC))
+        let qβ : Q(VarCat $qi) ← runTermElab (elabTerm β (expectedType? := q(VarCat $qi)))
+        let qL : Q(Finset (Atom $qβ)) ← @gatherAtoms qi qβ
+        let L ← runTermElab qL.toSyntax
+        evalTactic (← `(tactic|
+          let $x:ident := $L;
+          try simp only [Finset.union_empty,Finset.empty_union,Finset.union_assoc,FreeVariables.fv,id] at $x:ident
+        ))
 
 syntax (name := pick_fresh)
   "pick_fresh" ident (":" term)? ("∉" term)? : tactic

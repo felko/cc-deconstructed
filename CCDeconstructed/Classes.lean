@@ -19,10 +19,10 @@ namespace WellScopedness
   attribute [simp,aesop norm unfold] WellScopedRec WellScoped
 
   class Infrastructure (α : Type) extends WellScopedness α where
-    WellScoped_implies_WellScopedRec_0 :
+    WellScopedRec0 :
       WellScoped t →
       WellScopedRec 0 t
-    WellScopedRec_weaken :
+    weaken :
       m <= n →
       WellScopedRec m t →
       WellScopedRec n t
@@ -42,13 +42,14 @@ end FreeVariables
 open FreeVariables
 
 @[simp,aesop norm unfold]
-def VarCat.type (α : VarCat i) : Type :=
+abbrev VarCat.type (α : VarCat i) : Type :=
   match α with
   | .var _ => Var (var i)
   | .tvar _ => Typ i
 
 open VarCat
 
+set_option synthInstance.checkSynthOrder false
 class Scoped (α : Type) (β : VarCat i) extends FreeVariables α β where
   instantiateRec : α → Index β → β.type → α
   substitute : α → Atom β → β.type → α
@@ -80,7 +81,7 @@ namespace Scoped
   := by
     intros H
     apply self.instantiateRec_WellScopedRec
-    · apply self.WellScoped_implies_WellScopedRec_0 H
+    · apply self.WellScopedRec0 H
     · linarith
 
   attribute [aesop unsafe forward 20%]
@@ -92,16 +93,16 @@ end Scoped
 set_option synthInstance.checkSynthOrder false
 class WellFormedness (i : CC) (α : Type) extends WellScopedness α where
   WellFormed : Env i → α → Prop
-  WellFormed_WellScoped :
+  toWellScoped :
     WellFormed Γ t →
     WellScoped t
-  WellFormed_weaken :
+  weaken :
     WellFormed (Γ ++ Δ) t →
     Env.Nodup (Γ ++ Θ ++ Δ) →
     WellFormed (Γ ++ Θ ++ Δ) t
 
 namespace WellFormedness
-  lemma WellFormed_weaken_head {i : CC} [self : WellFormedness i α] {Γ Δ : Env i} {t : α} :
+  lemma weaken_head {i : CC} [self : WellFormedness i α] {Γ Δ : Env i} {t : α} :
     WellFormed Γ t →
     Env.Nodup (Γ ++ Δ) →
     WellFormed (Γ ++ Δ) t
@@ -110,10 +111,10 @@ namespace WellFormedness
     conv in Γ ++ Δ =>
       rw [<- Env.concat_nil (Γ := Γ ++ Δ)]
       rfl
-    apply WellFormed_weaken
+    apply weaken
       <;> assumption
 
-  lemma WellFormed_weaken_cons {i : CC} [self : WellFormedness i α] {Γ : Env i} {a : Assoc i} {t : α} :
+  lemma weaken_cons {i : CC} [self : WellFormedness i α] {Γ : Env i} {a : Assoc i} {t : α} :
     Env.Nodup Γ →
     a.name ∉ Env.dom Γ →
     WellFormed Γ t →
@@ -121,14 +122,6 @@ namespace WellFormedness
   := by
     intros Nodup NotIn WF
     rw [<- Env.concat_singleton]
-    apply WellFormed_weaken_head WF
+    apply weaken_head WF
     apply Env.Nodup.cons Nodup NotIn
 end WellFormedness
-
-structure Scope {α : Type} (β : VarCat i) [Scoped α β] (P : α → Prop) (t : α) where
-  atoms : Finset (Atom β)
-  proof : ∀ x ∉ atoms, P (Scoped.instantiate (β := β) t
-    (match β with
-     | .var _ => .free x
-     | .tvar _ =>.var (.free x)
-    ))

@@ -5,3 +5,7 @@ import CCDeconstructed.Infrastructure
 import CCDeconstructed.Syntax
 import CCDeconstructed.Tactics
 import CCDeconstructed.Var
+import CCDeconstructed.WellFormedness
+import CCDeconstructed.Subcapturing
+import CCDeconstructed.Subtyping
+import CCDeconstructed.Typing

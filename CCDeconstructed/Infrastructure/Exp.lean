@@ -12,63 +12,73 @@ namespace Exp
   instance : Coe (Var (.var i)) (Exp i) where
     coe := Exp.var
 
-  @[aesop norm]
-  def freeVariablesVar (e : Exp i) : Finset (Atom (.var i)) :=
+  @[simp]
+  def fvVar (e : Exp i) : Finset (Atom (.var i)) :=
     match e with
     | .var v => v.fv
-    | .abs _ e => e.freeVariablesVar
-    | .app f e => f.fv ∪ e.fv
-    | .tabs _ e => e.freeVariablesVar
-    | .tapp f _ => f.fv
-    | .let_ e1 e2 => e1.freeVariablesVar ∪ e2.freeVariablesVar
-    | @Exp.type _ _ _ e => e.freeVariablesVar
+    | .abs T e => T.fvVar ∪ e.fvVar
+    | .app f e => fv f ∪ fv e
+    | .tabs _ T e => T.fvVar ∪ e.fvVar
+    | .tapp f R => f.fv ∪ R.fvVar
+    | .let_ e1 e2 => e1.fvVar ∪ e2.fvVar
+    | @Exp.type _ _ T e => T.fvVar ∪ e.fvVar
     | @Exp.box _ _ x => x.fv
     | @Exp.unbox _ _ x => x.fv
 
-  @[aesop norm]
-  def freeVariablesTyp (e : Exp i) : Finset (Atom (.tvar i)) :=
+  @[simp]
+  def fvTyp (e : Exp i) : Finset (Atom (.tvar i)) :=
     match e with
     | .var _ => ∅
-    | .abs T e => T.freeVariablesTyp ∪ e.freeVariablesTyp
+    | .abs T e => T.fvTyp ∪ e.fvTyp
     | .app _ _ => ∅
-    | .tabs T e => T.freeVariablesTyp ∪ e.freeVariablesTyp
-    | .tapp _ T => T.freeVariablesTyp
-    | .let_ e1 e2 => e1.freeVariablesTyp ∪ e2.freeVariablesTyp
-    | @Exp.type _ _ T e => T.freeVariablesTyp ∪ e.freeVariablesTyp
+    | .tabs k T e => T.fvTyp ∪ e.fvTyp
+    | .tapp _ T => T.fvTyp
+    | .let_ e1 e2 => e1.fvTyp ∪ e2.fvTyp
+    | @Exp.type _ _ T e => T.fvTyp ∪ e.fvTyp
     | @Exp.box _ _ _ => ∅
     | @Exp.unbox _ _ _ => ∅
 
+  @[simp]
   instance : FreeVariables (Exp i) (.var i) where
-    fv := freeVariablesVar
+    fv := fvVar
 
+  @[simp]
   instance : FreeVariables (Exp i) (.tvar i) where
-    fv := freeVariablesTyp
+    fv := fvTyp
 
   @[aesop norm]
-  def instantiateRecVar (e : Exp i) (k : Index (.var i)) (u : Var (.var i)) : Exp i :=
+  def instantiateRecCap (e : Exp i) (k : Index (.var i)) (u : Var (.var i)) (D : Cap i) : Exp i :=
     match e with
     | .var v => v.instantiateRec k u
-    | .abs T e => .abs T (e.instantiateRecVar (k + 1) u)
+    | .abs T e => .abs (T.instantiateRecCap k D) (e.instantiateRecCap (k + 1) u D)
     | .app f e => .app (f.instantiateRec k u) (e.instantiateRec k u)
-    | .tabs T e => .tabs T (e.instantiateRecVar (k + 1) u)
-    | .tapp x T => .tapp (x.instantiateRec k u) T
-    | .let_ e1 e2 => .let_ (e1.instantiateRecVar k u) (e2.instantiateRecVar (k + 1) u)
-    | @Exp.type _ _ T e => .type T (e.instantiateRecVar (k + 1) u)
+    | .tabs k' T e => .tabs k' (T.instantiateRecCap k D) (e.instantiateRecCap (k + 1) u D)
+    | .tapp x T => .tapp (x.instantiateRec k u) (T.instantiateRecCap k D)
+    | .let_ e1 e2 => .let_ (e1.instantiateRecCap k u D) (e2.instantiateRecCap (k + 1) u D)
+    | @Exp.type _ _ T e => .type (T.instantiateRecCap k D) (e.instantiateRecCap (k + 1) u D)
     | @Exp.box _ _ x => .box (x.instantiateRec k u)
     | @Exp.unbox _ _ x => .unbox (x.instantiateRec k u)
 
   @[aesop norm]
-  def substituteVar (e : Exp i) (x : Atom (.var i)) (u : Var (.var i)) : Exp i :=
+  def instantiateRecVar (e : Exp i) (k : Index (.var i)) (u : Var (.var i)) : Exp i :=
+    instantiateRecCap e k u {u}
+
+  @[aesop norm]
+  def substituteCap (e : Exp i) (x : Atom (.var i)) (u : Var (.var i)) (D : Cap i) : Exp i :=
     match e with
     | .var v => v.substitute x u
-    | .abs T e => .abs T (e.substituteVar x u)
+    | .abs T e => .abs T (e.substituteCap x u D)
     | .app f e =>.app (f.substitute x u) (e.substitute x u)
-    | .tabs T e => .tabs T (e.substituteVar x u)
-    | .tapp f T => .tapp (f.substitute x u) T
-    | .let_ e1 e2 => .let_ (e1.substituteVar x u) (e2.substituteVar x u)
-    | @Exp.type _ _ T e => .type T (e.substituteVar x u)
+    | .tabs k T e => .tabs k (T.substituteCap x D) (e.substituteCap x u D)
+    | .tapp f T => .tapp (f.substitute x u) (T.substituteCap x D)
+    | .let_ e1 e2 => .let_ (e1.substituteCap x u D) (e2.substituteCap x u D)
+    | @Exp.type _ _ T e => .type (T.substituteCap x D) (e.substituteCap x u D)
     | @Exp.box _ _ v => .box (v.substitute x u)
     | @Exp.unbox _ _ v => .unbox (v.substitute x u)
+
+  @[aesop norm]
+  def substituteVar (e : Exp i) (x : Atom (.var i)) (u : Var (.var i)) : Exp i :=
+    substituteCap e x u {u}
 
   @[aesop norm]
   def instantiateRecTyp (e : Exp i) (K : Index (.tvar i)) (U : Typ i) : Exp i :=
@@ -76,7 +86,7 @@ namespace Exp
     | .var v => v
     | .abs T e => .abs (T.instantiateRecTyp K U) (e.instantiateRecTyp (K + 1) U)
     | .app f e =>.app f e
-    | .tabs T e => .tabs (T.instantiateRecTyp K U) (e.instantiateRecTyp (K + 1) U)
+    | .tabs k T e => .tabs k (T.instantiateRecTyp K U) (e.instantiateRecTyp (K + 1) U)
     | .tapp f T => .tapp f (T.instantiateRecTyp K U)
     | .let_ e1 e2 => .let_ (e1.instantiateRecTyp K U) (e2.instantiateRecTyp (K + 1) U)
     | @Exp.type _ _ T e => .type (T.instantiateRecTyp K U) (e.instantiateRecTyp (K + 1) U)
@@ -89,7 +99,7 @@ namespace Exp
     | .var v => .var v
     | .abs T e => .abs (T.substituteTyp X U) (e.substituteTyp X U)
     | .app f e =>.app f e
-    | .tabs T e => .tabs (T.substituteTyp X U) (e.substituteTyp X U)
+    | .tabs k T e => .tabs k (T.substituteTyp X U) (e.substituteTyp X U)
     | .tapp f T => .tapp f (T.substituteTyp X U)
     | .let_ e1 e2 => .let_ (e1.substituteTyp X U) (e2.substituteTyp X U)
     | @Exp.type _ _ T e => .type (T.substituteTyp X U) (e.substituteTyp X U)
@@ -112,7 +122,7 @@ namespace Exp
     | tabs :
         Typ.WellScopedRec n T →
         WellScopedRec (n + 1) e →
-        WellScopedRec n (.tabs T e)
+        WellScopedRec n (.tabs k T e)
     | tapp :
         Var.WellScopedRec (allowCap := false) n f →
         Typ.WellScopedRec n T →
@@ -148,7 +158,7 @@ namespace Exp
     | tabs (L : Finset (Atom (.tvar i))) :
         Typ.WellScoped T →
         (∀ X ∉ L, WellScoped (e.instantiateRecTyp 0 X)) →
-        WellScoped (.tabs T e)
+        WellScoped (.tabs k T e)
     | tapp :
         Var.WellScoped (allowCap := false) f →
         Typ.WellScoped T →
@@ -168,89 +178,7 @@ namespace Exp
         Var.WellScoped (allowCap := false) v →
         WellScoped (.unbox v)
 
-  @[elab_as_elim]
-  lemma WellScoped.locally_nameless_rec {i : CC}
-    {motive : ∀ (e : Exp i), WellScoped e → Prop}
-    (var : ∀ (x : Atom (.var i)), motive (.var x) (.var True.intro))
-    (abs : ∀ (T : Typ i) (e : Exp i) (L : Finset (Atom (.var i))) (x : Atom (.var i)) (xFresh : x ∉ L ∪ Typ.freeVariablesVar T ∪ freeVariablesVar e),
-      ∀ (TWS : Typ.WellScoped T)
-        (eWS : ∀ x ∉ L, WellScoped (e.instantiateRecVar 0 x))
-        (eIH : motive (instantiateRecVar e 0 x) (eWS x (by aesop))),
-      motive (.abs T e) (.abs L TWS eWS))
-    (app : ∀ (f e : Atom (.var i)),
-      motive (.app f e) (.app True.intro True.intro))
-    (tabs : ∀ (T : Typ i) (e : Exp i) (L : Finset (Atom (.tvar i))) (X : Atom (.tvar i)) (XFresh : X ∉ L ∪ Typ.freeVariablesTyp T ∪ freeVariablesTyp e),
-      ∀ (TWS : Typ.WellScoped T)
-        (eWS : ∀ X ∉ L, WellScoped (e.instantiateRecTyp 0 X))
-        (eIH : motive (instantiateRecTyp e 0 X) (eWS X (by aesop))),
-      motive (.tabs T e) (.tabs L TWS eWS))
-    (tapp : ∀ (f : Atom (.var i)) (T : Typ i),
-      ∀ (TWS : Typ.WellScoped T),
-      motive (.tapp f T) (.tapp True.intro TWS))
-    (let_ : ∀ (e1 : Exp i) (e2 : Exp i) (L : Finset (Atom (.var i))) (x : Atom (.var i)) (xFresh : x ∉ L ∪ freeVariablesVar e1 ∪ freeVariablesVar e2),
-      ∀ (e1WS : WellScoped e1)
-        (e2WS : ∀ x ∉ L, WellScoped (e2.instantiateRecVar 0 x))
-        (e1IH : motive e1 e1WS)
-        (e2IH : motive (instantiateRecVar e2 0 x) (e2WS x (by aesop))),
-      motive (.let_ e1 e2) (.let_ L e1WS e2WS))
-    (type : ∀ [HasFeature i .type_bindings] (T : Typ i) (e : Exp i) (L : Finset (Atom (.tvar i))) (X : Atom (.tvar i)) (XFresh : X ∉ L ∪ Typ.freeVariablesTyp T ∪ freeVariablesTyp e),
-      ∀ (TWS : Typ.WellScoped T)
-        (eWS : ∀ X ∉ L, WellScoped (e.instantiateRecTyp 0 X))
-        (eIH : motive (e.instantiateRecTyp 0 X) (eWS X (by aesop))),
-      motive (.type T e) (.type L TWS eWS))
-    (box : ∀ [HasFeature i .explicit_boxing] (x : Atom (.var i)),
-      motive (.box x) (.box True.intro))
-    (unbox : ∀ [HasFeature i .explicit_boxing] (x : Atom (.var i)),
-      motive (.unbox x) (.unbox True.intro))
-    : ∀ {e} WS, motive e WS
-  := by
-    intros e e.WS
-    induction e.WS
-    · case var v v.WS =>
-      cases v <;> simp [Var.WellScoped] at v.WS; apply var
-    · case abs T e L T.WS e.WS e.IH =>
-      pick_fresh x : .var i
-      apply abs T e _ x
-      · apply T.WS
-      · apply e.IH
-      · clear * - x.Fresh; aesop
-    · case app f e f.WS e.WS =>
-      cases f <;> cases e <;> simp [Var.WellScoped] at f.WS e.WS
-      rename_i f e
-      apply app
-    · case tabs T e L T.WS e.WS e.IH =>
-      pick_fresh X : .tvar i
-      apply tabs T e _ X
-      · apply T.WS
-      · apply e.IH
-      · clear * - X.Fresh; aesop
-    · case tapp f T f.WS T.WS =>
-      cases f <;> simp [Var.WellScoped] at f.WS
-      rename_i f
-      apply tapp
-      exact T.WS
-    · case let_ e1 e2 L e1.WS e2.WS e1.IH e2.IH =>
-      pick_fresh x : .var i
-      apply let_ e1 e2 _ x
-      · apply e1.IH
-      · apply e2.IH
-      · clear * - x.Fresh; aesop
-    · case type T e _ L T.WS e.WS e.IH =>
-      pick_fresh X : .tvar i
-      apply type T e _ X
-      · apply T.WS
-      · apply e.IH
-      · clear * - X.Fresh; aesop
-    · case box v _ v.WS =>
-      cases v <;> simp [Var.WellScoped] at v.WS
-      rename_i x
-      apply box
-    · case unbox v _ v.WS =>
-      cases v <;> simp [Var.WellScoped] at v.WS
-      rename_i x
-      apply unbox
-
-  @[aesop safe forward]
+  @[aesop unsafe]
   lemma WellScopedRec_instantiateRecTyp :
     WellScopedRec n (e.instantiateRecTyp n U) →
     WellScopedRec (n + 1) e
@@ -264,7 +192,7 @@ namespace Exp
       case var w =>
       rw [Eq] at *
       constructor
-      apply Var.WellScopedRec_weaken (m := n)
+      apply Var.WellScoped.weaken (m := n)
       · linarith
       · assumption
     · case abs n T e1 T.WS _ e1.IH =>
@@ -280,23 +208,24 @@ namespace Exp
       cases e <;> simp [instantiateRecTyp] at Eq
       case app n f' e' =>
       constructor
-        <;> apply Var.WellScopedRec_weaken (m := n) (by linarith)
+        <;> apply Var.WellScoped.weaken (m := n) (by linarith)
         <;> rw [Eq.1,Eq.2] at *
         <;> assumption
-    · case tabs n T e1 T.WS _ e1.IH =>
+    · case tabs n T e1 k T.WS _ e1.IH =>
       cases e <;> simp [instantiateRecTyp] at Eq
-      case tabs T' e' =>
-      rw [<- Eq.1] at T.WS
+      case tabs k' T' e1' =>
+      obtain ⟨Eq.k, ⟨Eq.T, Eq.e1⟩⟩ := Eq
+      rw [<- Eq.T] at T.WS
       constructor
       · apply Typ.WellScopedRec_instantiateRecTyp (U := U)
         assumption
       · apply e1.IH (U := U)
-        exact Eq.2
+        exact Eq.e1
     · case tapp n f T f.WS T.WS =>
       cases e <;> simp [instantiateRecTyp] at Eq
       case tapp n f' T' =>
       constructor
-      · apply Var.WellScopedRec_weaken (m := n) (by linarith)
+      · apply Var.WellScoped.weaken (m := n) (by linarith)
         rw [Eq.1]
         assumption
       · apply Typ.WellScopedRec_instantiateRecTyp (U := U)
@@ -322,164 +251,185 @@ namespace Exp
       case box w =>
       rw [Eq] at *
       constructor
-      apply Var.WellScopedRec_weaken (m := n) (by linarith) v.WS
+      apply Var.WellScoped.weaken (m := n) (by linarith) v.WS
     · case unbox n v _ v.WS =>
       cases e <;> simp [instantiateRecTyp] at Eq
       case unbox w =>
       rw [Eq] at *
       constructor
-      apply Var.WellScopedRec_weaken (m := n) (by linarith) v.WS
+      apply Var.WellScoped.weaken (m := n) (by linarith) v.WS
 
-  @[aesop safe forward]
-  lemma WellScopedRec_instantiateRecVar :
-    WellScopedRec n (instantiateRecVar e n u) →
+  @[aesop unsafe]
+  lemma WellScopedRec_instantiateRecCap :
+    WellScopedRec n (instantiateRecCap e n u D) →
     WellScopedRec (n + 1) e
   := by
     intros e.WS
-    generalize Eq : instantiateRecVar e n u = e'
+    generalize Eq : instantiateRecCap e n u D = e'
     rw [Eq] at e.WS
     induction' e.WS generalizing e
     · case var n v v.WS =>
-      cases e <;> simp [instantiateRecVar] at Eq
+      cases e <;> simp [instantiateRecCap] at Eq
       case var w =>
       constructor
       apply Var.WellScopedRec_instantiateRec (u := u)
       rw [<- Eq] at v.WS
       exact v.WS
     · case abs n T e1 T.WS _ e1.IH =>
-      cases e <;> simp [instantiateRecVar] at Eq
+      cases e <;> simp [instantiateRecCap] at Eq
       case abs T' e' =>
       rw [<- Eq.1] at T.WS
       constructor
-      · apply Typ.WellScopedRec_weaken (m := n) (by linarith) T.WS
+      · apply Typ.WellScopedRec_instantiateRecCap T.WS
       · apply e1.IH
         exact Eq.2
     · case app n f e f.WS e.WS =>
-      cases e <;> simp [instantiateRecVar] at Eq
+      cases e <;> simp [instantiateRecCap,-Var.instantiateRec] at Eq
       case app n f' e' =>
       constructor
         <;> apply Var.WellScopedRec_instantiateRec (u := u)
         <;> rw [Eq.1,Eq.2] at *
         <;> assumption
-    · case tabs n T e1 T.WS _ e1.IH =>
-      cases e <;> simp [instantiateRecVar] at Eq
-      case tabs T' e' =>
+    · case tabs n T e1 k T.WS _ e1.IH =>
+      cases e <;> simp [instantiateRecCap] at Eq
+      case tabs k' T' e1' =>
+      obtain ⟨Eq.k, ⟨Eq.T, Eq.e1⟩⟩ := Eq
       constructor
-      · apply Typ.WellScopedRec_weaken (m := n) (by linarith)
-        rw [Eq.1]
+      · apply Typ.WellScopedRec_instantiateRecCap
+        rw [Eq.T]
         exact T.WS
       · apply e1.IH
-        exact Eq.2
+        exact Eq.e1
     · case tapp n f T f.WS T.WS =>
-      cases e <;> simp [instantiateRecVar] at Eq
+      cases e <;> simp [instantiateRecCap,-Var.instantiateRec] at Eq
       case tapp n f' T' =>
       constructor
       · apply Var.WellScopedRec_instantiateRec (u := u)
         rw [Eq.1]
         exact f.WS
-      · apply Typ.WellScopedRec_weaken (m := n) (by linarith)
+      · apply Typ.WellScopedRec_instantiateRecCap
         rw [Eq.2]
         exact T.WS
     · case let_ n _ _ e1.WS e2.WS =>
-      cases e <;> simp [instantiateRecVar] at Eq
+      cases e <;> simp [instantiateRecCap] at Eq
       case let_ e1' e2' =>
       constructor
       · apply e1.WS Eq.1
       · apply e2.WS Eq.2
     · case type n _ _ _ T.WS e.WS e.IH =>
-      cases e <;> simp [instantiateRecVar] at Eq
+      cases e <;> simp [instantiateRecCap] at Eq
       case type T' e' =>
       constructor
-      · apply Typ.WellScopedRec_weaken (m := n) (by linarith)
+      · apply Typ.WellScopedRec_instantiateRecCap
         rw [Eq.1]
         exact T.WS
       · apply e.IH
         exact Eq.2
     · case box n _ _ v.WS =>
-      cases e <;> simp [instantiateRecVar] at Eq
+      cases e <;> simp [instantiateRecCap,-Var.instantiateRec] at Eq
       case box w =>
       constructor
       apply Var.WellScopedRec_instantiateRec (u := u)
       rw [Eq]
       exact v.WS
     · case unbox n _ _ v.WS =>
-      cases e <;> simp [instantiateRecVar] at Eq
+      cases e <;> simp [instantiateRecCap,-Var.instantiateRec] at Eq
       case unbox w =>
       constructor
       apply Var.WellScopedRec_instantiateRec (u := u)
       rw [Eq]
       exact v.WS
 
-  @[aesop safe forward]
-  lemma WellScoped_implies_WellScopedRec_0 :
-    WellScoped e →
-    WellScopedRec 0 e
+  @[aesop unsafe]
+  lemma WellScopedRec_instantiateRecVar :
+    WellScopedRec n (instantiateRecVar e n u) →
+    WellScopedRec (n + 1) e
+  := WellScopedRec_instantiateRecCap
+
+  namespace WellScoped
+    @[aesop unsafe]
+    lemma WellScopedRec0 :
+      WellScoped e →
+      WellScopedRec 0 e
+    := by
+      intros WS
+      induction' WS <;> constructor <;> aesop
+
+    @[aesop unsafe]
+    lemma weaken :
+      m <= n →
+      WellScopedRec m e→
+      WellScopedRec n e
+    := by
+      intros leq WS
+      induction' WS generalizing n
+      · case var m v v.WS =>
+        constructor
+        apply Var.WellScoped.weaken (m := m) leq v.WS
+      · case abs m T e T.WS e.WS e.IH =>
+        constructor
+        · apply Typ.WellScoped.weaken (m := m) leq T.WS
+        · apply e.IH; linarith
+      · case app m f e f.WS e.WS =>
+        constructor
+          <;> apply Var.WellScoped.weaken (m := m) leq
+          <;> assumption
+      · case tabs m T e k T.WS e.WS e.IH =>
+        constructor
+        · apply Typ.WellScoped.weaken (m := m) leq T.WS
+        · apply e.IH; linarith
+      · case tapp m f T f.WS T.WS =>
+        constructor
+        · apply Var.WellScoped.weaken (m := m) leq f.WS
+        · apply Typ.WellScoped.weaken (m := m) leq T.WS
+      · case let_ m e1 e2 e1.WS e2.WS e1.IH e2.IH =>
+        constructor
+        · apply e1.IH leq
+        · apply e2.IH (n := n + 1); linarith
+      · case type m T e _ T.WS e.WS e.IH =>
+        constructor
+        · apply Typ.WellScoped.weaken (m := m) leq T.WS
+        · apply e.IH (n := n + 1); linarith
+      · case box m v _ v.WS =>
+        constructor
+        apply Var.WellScoped.weaken (m := m) leq v.WS
+      · case unbox m v _ v.WS =>
+        constructor
+        apply Var.WellScoped.weaken (m := m) leq v.WS
+
+    @[simp]
+    instance instWellScopedness : WellScopedness (Exp i) where
+      WellScopedRec := WellScopedRec
+      WellScoped := WellScoped
+
+    @[simp]
+    instance instWellScopednessInfrastructure : WellScopedness.Infrastructure (Exp i) where
+      WellScopedRec0 := WellScopedRec0
+      weaken := weaken
+  end WellScoped
+
+  @[aesop unsafe]
+  lemma substituteCap_fresh :
+    x ∉ fvVar e →
+    substituteCap e x u D = e
   := by
-    intros WS
-    induction' WS <;> constructor <;> aesop
+    intros x.NotIn
+    induction e <;> aesop
 
-  @[aesop safe forward]
-  lemma WellScopedRec_weaken :
-    m <= n →
-    WellScopedRec m e→
-    WellScopedRec n e
-  := by
-    intros leq WS
-    induction' WS generalizing n
-    · case var m v v.WS =>
-      constructor
-      apply Var.WellScopedRec_weaken (m := m) leq v.WS
-    · case abs m T e T.WS e.WS e.IH =>
-      constructor
-      · apply Typ.WellScopedRec_weaken (m := m) leq T.WS
-      · apply e.IH; linarith
-    · case app m f e f.WS e.WS =>
-      constructor
-        <;> apply Var.WellScopedRec_weaken (m := m) leq
-        <;> assumption
-    · case tabs m T e T.WS e.WS e.IH =>
-      constructor
-      · apply Typ.WellScopedRec_weaken (m := m) leq T.WS
-      · apply e.IH; linarith
-    · case tapp m f T f.WS T.WS =>
-      constructor
-      · apply Var.WellScopedRec_weaken (m := m) leq f.WS
-      · apply Typ.WellScopedRec_weaken (m := m) leq T.WS
-    · case let_ m e1 e2 e1.WS e2.WS e1.IH e2.IH =>
-      constructor
-      · apply e1.IH leq
-      · apply e2.IH (n := n + 1); linarith
-    · case type m T e _ T.WS e.WS e.IH =>
-      constructor
-      · apply Typ.WellScopedRec_weaken (m := m) leq T.WS
-      · apply e.IH (n := n + 1); linarith
-    · case box m v _ v.WS =>
-      constructor
-      apply Var.WellScopedRec_weaken (m := m) leq v.WS
-    · case unbox m v _ v.WS =>
-      constructor
-      apply Var.WellScopedRec_weaken (m := m) leq v.WS
-
-  instance instWellScopedness : WellScopedness (Exp i) where
-    WellScopedRec := WellScopedRec
-    WellScoped := WellScoped
-    WellScoped_implies_WellScopedRec_0 := WellScoped_implies_WellScopedRec_0
-    WellScopedRec_weaken := WellScopedRec_weaken
-
-  @[aesop safe forward]
+  @[aesop unsafe]
   lemma substituteVar_fresh :
-    x ∉ freeVariablesVar e →
+    x ∉ fvVar e →
     substituteVar e x u = e
-  := by induction e <;> aesop
+  := substituteCap_fresh
 
-  @[aesop safe forward]
-  lemma instantiateRecVar_WellScopedRec :
+  @[aesop unsafe]
+  lemma instantiateRecCap_WellScopedRec :
     WellScopedRec n e →
     k >= n →
-    instantiateRecVar e k u = e
+    instantiateRecCap e k u D = e
   := by
     intros WS geq
-    induction WS generalizing k <;> simp [instantiateRecVar]
+    induction WS generalizing k <;> simp [instantiateRecCap,-Var.instantiateRec]
     · case var v v.WS =>
       apply Var.instantiateRec_WellScopedRec v.WS geq
     · case abs T e T.WS e.WS e.IH =>
@@ -489,9 +439,14 @@ namespace Exp
         <;> apply Var.instantiateRec_WellScopedRec
         <;> assumption
     · case tabs T e T.WS e.WS e.IH =>
-      apply e.IH (k := k + 1); linarith
+      apply And.intro
+      · exact Typ.instantiateRecVar_WellScopedRec T.WS geq
+      · apply e.IH (k := k + 1)
+        linarith
     · case tapp f T f.WS T.WS =>
-      apply Var.instantiateRec_WellScopedRec <;> assumption
+      apply And.intro
+      · apply Var.instantiateRec_WellScopedRec <;> assumption
+      · apply Typ.instantiateRecVar_WellScopedRec T.WS geq
     · case let_ e1 e2 e1.WS e2.WS e1.IH e2.IH =>
       aesop
     · case type T e T.WS e.WS e.IH =>
@@ -501,20 +456,31 @@ namespace Exp
     · case unbox v v.WS =>
       apply Var.instantiateRec_WellScopedRec v.WS geq
 
-  instance : Scoped (Exp i) (.var i) where
+  @[aesop unsafe]
+  lemma instantiateRecVar_WellScopedRec :
+    WellScopedRec n e →
+    k >= n →
+    instantiateRecVar e k u = e
+  := instantiateRecCap_WellScopedRec
+
+  @[simp]
+  instance instScopedVar : Scoped (Exp i) (.var i) where
     instantiateRec := instantiateRecVar
     substitute := substituteVar
+
+  @[simp]
+  instance instScopedInfrastructureVar : Scoped.Infrastructure (Exp i) (.var i) where
     substitute_fresh := substituteVar_fresh
     instantiateRec_WellScopedRec := instantiateRecVar_WellScopedRec
     WellScopedRec_instantiateRec := WellScopedRec_instantiateRecVar
 
   @[aesop safe forward]
   lemma substituteTyp_fresh :
-    X ∉ freeVariablesTyp e →
+    X ∉ fvTyp e →
     substituteTyp e X U = e
   := by
     intros x.NotIn
-    induction e <;> simp [freeVariablesTyp] at x.NotIn <;> simp [substituteTyp]
+    induction e <;> simp [fvTyp] at x.NotIn <;> simp [substituteTyp]
     · case abs T e e.IH =>
       apply And.intro
       . apply Typ.substituteTyp_fresh (by aesop)
@@ -543,9 +509,11 @@ namespace Exp
     intros WS geq
     induction WS generalizing k <;> simp [instantiateRecTyp] <;> aesop
 
-  instance : Scoped (Exp i) (.tvar i) where
+  instance instScopedTyp : Scoped (Exp i) (.tvar i) where
     instantiateRec := instantiateRecTyp
     substitute := substituteTyp
+
+  instance instScopedInfrastructureTyp : Scoped.Infrastructure (Exp i) (.tvar i) where
     substitute_fresh := substituteTyp_fresh
     WellScopedRec_instantiateRec := WellScopedRec_instantiateRecTyp
     instantiateRec_WellScopedRec := instantiateRecTyp_WellScopedRec
