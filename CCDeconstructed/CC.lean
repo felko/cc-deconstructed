@@ -2,6 +2,8 @@ inductive CC :=
   | cc0 | cc1 | cc2 | cc3
   deriving Repr, DecidableEq
 
+open CC
+
 inductive Feature :=
   | sealed_type_parameters
   | box_type
@@ -13,19 +15,24 @@ open Feature
 
 class inductive HasFeature : CC → Feature → Prop :=
   | cc0_has_box_type               : HasFeature cc0 box_type
-  | cc0_has_explicit_boxing        : HasFeature cc0 explicit_boxicc
+  | cc0_has_explicit_boxing        : HasFeature cc0 explicit_boxing
 
   | cc1_has_box_type               : HasFeature cc1 box_type
   | cc1_has_explicit_boxing        : HasFeature cc1 explicit_boxing
-  | cc1_has_sealed_type_parameters : HasFeature cc1 sealed_type_parametecc
+  | cc1_has_sealed_type_parameters : HasFeature cc1 sealed_type_parameters
 
   | cc2_has_explicit_boxing        : HasFeature cc2 explicit_boxing
   | cc2_has_sealed_type_parameters : HasFeature cc2 sealed_type_parameters
-  | cc2_has_type_bindings          : HasFeature cc2 type_bindincc
+  | cc2_has_type_bindings          : HasFeature cc2 type_bindings
 
   | cc3_has_sealed_type_parameters : HasFeature cc3 sealed_type_parameters
   | cc3_has_type_bindings          : HasFeature cc3 type_bindings
   deriving Repr
+
+instance : Decidable (HasFeature i f) := by
+  cases i <;> cases f
+    <;> first | apply isTrue; constructor
+              | apply isFalse; intros h; cases h
 
 attribute [instance]
   HasFeature.cc0_has_box_type

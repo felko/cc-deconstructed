@@ -8,4 +8,4 @@ import CCDeconstructed.Var
 import CCDeconstructed.WellFormedness
 import CCDeconstructed.Subcapturing
 import CCDeconstructed.Subtyping
-import CCDeconstructed.Typing
+import CCDeconstructed.CC0.Typing

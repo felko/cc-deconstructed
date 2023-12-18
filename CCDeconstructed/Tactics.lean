@@ -96,6 +96,19 @@ def specializeAnyScope : TacticM Unit := do
       ))
   | .none => throwTacticEx `specializeAllScopes (← getMainGoal) "couldn't find any goal to specialize"
 
+syntax (name := decide)
+  "decide" ident ":" term : tactic
+
+elab_rules (kind := decide) : tactic
+  | `(tactic| decide $x:ident : $t:term) =>
+      withMainContext do
+        evalTactic (← `(tactic|
+          cases $x:ident : decide $t:term
+            <;> first | replace $x:ident : ¬$t:term := of_decide_eq_false $x:ident
+                      | replace $x:ident : $t:term := of_decide_eq_true $x:ident
+            <;> simp [$x:ident] at *
+        ))
+
 namespace Playground
   scoped syntax (name := pick_fresh_any) "pick_fresh_any" : tactic
   elab_rules (kind := pick_fresh_any) : tactic
@@ -114,6 +127,10 @@ namespace Playground
     (P : Exp i → Prop)
     (IH1 : ∀ x, x ∉ L1 → P (inst x e1))
     (IH2 : ∀ Y, Y ∉ L2 → P (inst Y e2))
+
+  example (x y : Nat) : True := by
+    decide h : x = y
+    simp
 
   example : True := by
     -- IH1: ∀ x ∉ L1, P (inst x e1)

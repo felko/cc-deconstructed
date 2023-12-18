@@ -8,6 +8,8 @@ import CCDeconstructed.Subcapturing
 import CCDeconstructed.Subtyping
 import CCDeconstructed.Substitution
 
+-- import LeanCopilot
+
 set_option linter.unusedVariables false
 
 open CC Feature VarCat
@@ -386,16 +388,70 @@ namespace Typing
     induction e.Ty <;> cases Eq.gen
     · case var.refl x S₃ D₃ Θ.WF x.Mem =>
       simp [Cap.substituteVar,Cap.substituteCap,Exp.substituteVar,Exp.substituteCap]
+      obtain ⟨S₁', ⟨S₂', ⟨D₁', ⟨D₂', ⟨u.Mem', ⟨SD₂.Eq, ⟨S.Sub', D.Sub'⟩⟩⟩⟩⟩⟩⟩ := Inversion.var u.Ty
+      simp at SD₂.Eq
+      obtain ⟨S₂.Eq, D₂.Eq⟩ := SD₂.Eq
+      cases S₂.Eq
+      cases D₂.Eq
+      have Γ.WF : Env.WellFormed Γ :=
+        (Typ.Sub.regular S.Sub).1
+      have u.In : u ∈ Env.dom Γ := by
+          apply Env.dom_mem_iff.mpr
+          exists .val, .cap S₁ D₁
+      have u.WF : Var.WellFormed (allowCap := false) Γ (Var.free u) := by
+        simp [Var.WellFormed]
+        exact u.In
+      have Θzu.WF : Env.WellFormed (Γ ++ Env.substituteVar Δ z (Var.free u)) :=
+        Env.WellFormed.substitutionVal (allowCap := false) u.WF Θ.WF
+      obtain ⟨S₂.WF, ⟨S₂.Shape, ⟨C.WF, x.NotIn⟩⟩⟩ := Env.WellFormed.inversion_val Θ.WF
+      simp at x.NotIn
+      obtain ⟨⟨⟩, ⟨⟩⟩ := Env.Nodup.unique (Env.WellFormed.Nodup Γ.WF) u.Mem u.Mem'
       split
       · case inl Eq =>
         cases Eq
+        have x.Mem' : z ⦂ Typ.cap S₂ D₂ ∈ Γ ▷ z ⦂ Typ.cap S₂ D₂ ++ Δ := by clear * -; aesop
+        obtain ⟨⟨⟩, ⟨⟩⟩ := Env.Nodup.unique (Env.WellFormed.Nodup Θ.WF) x.Mem x.Mem'
         simp at x.Mem
         simp
-        rcases x.Mem with ⟨⟨x.Mem⟩ | ⟨⟨⟩, ⟨⟩⟩⟩ | ⟨x.Mem⟩
-        · apply var
-          · apply Env.WellFormed.substitutionVal (allowCap := false) _ Θ.WF
-            simp [Var.WellFormed]
-            apply Env.dom_mem_iff.mpr
-            exists .val, .cap S₁ D₁
-          · sorry
+        rw [Typ.substituteVar_fresh (x.NotIn ∘ Or.inl)]
+        apply sub (Typ.cap S₁ {Var.free u})
+        · apply var (C := D₁) Θzu.WF
+          simp
+          exact Or.inl u.Mem
+        · apply Typ.Sub.cap
+          · rw [<- Env.concat_nil (Γ := Env.substituteVar Δ z (Var.free u))]
+            rw [<- Env.concat_assoc]
+            rw [<- Env.concat_nil (Γ := Γ)] at S.Sub
+            exact Typ.Sub.weaken S.Sub Θzu.WF
+          · apply Cap.Sub.reflexivity Θzu.WF
+            apply Cap.WellFormed.singleton
+            simp
+            exact Or.inl u.In
+          · apply (Typ.Sub.Shape_iff S.Sub).mpr S₂.Shape
+          · exact S₂.Shape
+        · apply Typ.WellFormed.cap
+          · rw [<- Typ.substituteVar_fresh (T := S₂) (x := z) (u := u)]
+            apply Typ.WellFormed.substitutionVal Θ.WF u.WF
+            · rw [<- Env.concat_singleton]
+              rw [Env.concat_assoc]
+              rw [<- Env.concat_nil (Γ := Γ ++ (∅ ▷ z ⦂ Typ.cap S₂ D₂ ++ Δ))]
+              apply Typ.WellFormed.weaken <;> simp
+              · exact (Typ.Sub.regular S.Sub).2.2
+              · rw [<- Env.concat_assoc]
+                simp
+                exact Env.WellFormed.Nodup Θ.WF
+            · exact x.NotIn ∘ Or.inl
+          . exact S₂.Shape
+          · apply Cap.WellFormed.singleton
+            simp
+            exact Or.inl u.In
+      . case inr Neq =>
+        replace Neq : x ≠ z := Neq ∘ Eq.symm
+        simp [Neq]
+        simp [Neq] at x.Mem
+        rcases x.Mem with ⟨x.Mem⟩ | ⟨x.Mem⟩
+        · apply var Θzu.WF
+          · simp
+            apply Or.inl
+        · rw [<- Var.substitute_fresh (v := .free x) (x := z) (u := u) (by clear * - Neq; aesop)]
 end Typing

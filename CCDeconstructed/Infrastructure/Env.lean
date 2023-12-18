@@ -5,22 +5,22 @@ import CCDeconstructed.Infrastructure.Typ
 
 set_option linter.unusedVariables false
 
-open Scoped FreeVariables VarCat
+open Scoped Feature FreeVariables VarCat
 
 namespace Assoc
   def fvTyp (a : Assoc i) : Finset (Atom (.tvar i)) :=
     Assoc.dom a ∪ Typ.fvTyp (Assoc.type a)
 
-  @[simp] lemma fvTyp_val : fvTyp (x ⦂  T) =       Typ.fvTyp T := by simp [fvTyp,dom]
-  @[simp] lemma fvTyp_sub : fvTyp (X <: S) = {X} ∪ Typ.fvTyp S := by simp [fvTyp,dom]
-  @[simp] lemma fvTyp_typ : fvTyp (X ≔  T) = {X} ∪ Typ.fvTyp T := by simp [fvTyp,dom]
+  @[simp] lemma fvTyp_val {x : Atom (.var i)} {T : Typ i} : fvTyp (x ⦂ T) = Typ.fvTyp T := by simp [fvTyp,dom]
+  @[simp] lemma fvTyp_sub {X : Atom (.tvar i)} {S : Typ i} : fvTyp (X <: S) = {X} ∪ Typ.fvTyp S := by simp [fvTyp,dom]
+  @[simp] lemma fvTyp_typ [HasFeature i type_bindings] {X : Atom (.tvar i)} {T : Typ i} : fvTyp (X ≔ T) = {X} ∪ Typ.fvTyp T := by simp [fvTyp,dom]
 
   def fvVar (a : Assoc i) : Finset (Atom (.var i)) :=
     Assoc.dom a ∪ Typ.fvVar (Assoc.type a)
 
-  @[simp] lemma fvVar_val : fvVar (x ⦂  T) = {x} ∪ Typ.fvVar T := by simp [fvVar,dom]
-  @[simp] lemma fvVar_sub : fvVar (X <: S) =       Typ.fvVar S := by simp [fvVar,dom]
-  @[simp] lemma fvVar_typ : fvVar (X ≔  T) =       Typ.fvVar T := by simp [fvVar,dom]
+  @[simp] lemma fvVar_val {x : Atom (.var i)} {T : Typ i} : fvVar (x ⦂ T) = {x} ∪ Typ.fvVar T := by simp [fvVar,dom]
+  @[simp] lemma fvVar_sub {X : Atom (.tvar i)} {S : Typ i} : fvVar (X <: S) = Typ.fvVar S := by simp [fvVar,dom]
+  @[simp] lemma fvVar_typ [HasFeature i type_bindings] {X : Atom (.tvar i)} {T : Typ i} : fvVar (X ≔ T) = Typ.fvVar T := by simp [fvVar,dom]
 
   instance instFreeVariablesTyp : FreeVariables (Assoc i) (.tvar i) where
     fv := fvTyp
@@ -60,16 +60,16 @@ namespace Assoc
   def instantiateRecTyp (a : Assoc i) (K : Index (.tvar i)) (U : Typ i) : Assoc i :=
     map (Typ.instantiateRecTyp · K U) a
 
-  @[simp] lemma instantiateRecTyp_val : instantiateRecTyp (x ⦂  T) K U = x ⦂  Typ.instantiateRecTyp T K U := by simp [instantiateRecTyp]
-  @[simp] lemma instantiateRecTyp_sub : instantiateRecTyp (X <: S) K U = X <: Typ.instantiateRecTyp S K U := by simp [instantiateRecTyp]
-  @[simp] lemma instantiateRecTyp_typ : instantiateRecTyp (X ≔  T) K U = X ≔  Typ.instantiateRecTyp T K U := by simp [instantiateRecTyp]
+  @[simp] lemma instantiateRecTyp_val {x : Atom (.var i)} {T : Typ i} : instantiateRecTyp (x ⦂  T) K U = x ⦂ Typ.instantiateRecTyp T K U := by simp [instantiateRecTyp]
+  @[simp] lemma instantiateRecTyp_sub {X : Atom (.tvar i)} {S : Typ i} : instantiateRecTyp (X <: S) K U = X <: Typ.instantiateRecTyp S K U := by simp [instantiateRecTyp]
+  @[simp] lemma instantiateRecTyp_typ [HasFeature i type_bindings] {X : Atom (.tvar i)} {T : Typ i} : instantiateRecTyp (X ≔  T) K U =  X ≔ Typ.instantiateRecTyp T K U := by simp [instantiateRecTyp]
 
   def substituteTyp (a : Assoc i) (X : Atom (.tvar i)) (U : Typ i) : Assoc i :=
     map (Typ.substituteTyp · X U) a
 
-  @[simp] lemma substituteTyp_val : substituteTyp (x ⦂  T) Y U = x ⦂  Typ.substituteTyp T Y U := by simp [substituteTyp]
-  @[simp] lemma substituteTyp_sub : substituteTyp (X <: S) Y U = X <: Typ.substituteTyp S Y U := by simp [substituteTyp]
-  @[simp] lemma substituteTyp_typ : substituteTyp (X ≔  T) Y U = X ≔  Typ.substituteTyp T Y U := by simp [substituteTyp]
+  @[simp] lemma substituteTyp_val {x : Atom (.var i)} {T : Typ i} : substituteTyp (x ⦂ T) Y U = x ⦂  Typ.substituteTyp T Y U := by simp [substituteTyp]
+  @[simp] lemma substituteTyp_sub {X : Atom (.tvar i)} {S : Typ i} : substituteTyp (X <: S) Y U = X <: Typ.substituteTyp S Y U := by simp [substituteTyp]
+  @[simp] lemma substituteTyp_typ [HasFeature i type_bindings] {X : Atom (.tvar i)} {T : Typ i} : substituteTyp (X ≔  T) Y U = X ≔ Typ.substituteTyp T Y U := by simp [substituteTyp]
 
   instance instScopedTyp : Scoped (Assoc i) (.tvar i) where
     instantiateRec := instantiateRecTyp
@@ -78,30 +78,30 @@ namespace Assoc
   def instantiateRecCap (a : Assoc i) (k : Index (.var i)) (D : Cap i) : Assoc i :=
     map (Typ.instantiateRecCap · k D) a
 
-  @[simp] lemma instantiateRecCap_val : instantiateRecCap (x ⦂  T) k D = x ⦂  Typ.instantiateRecCap T k D := by simp [instantiateRecCap]
-  @[simp] lemma instantiateRecCap_sub : instantiateRecCap (X <: S) k D = X <: Typ.instantiateRecCap S k D := by simp [instantiateRecCap]
-  @[simp] lemma instantiateRecCap_typ : instantiateRecCap (X ≔  T) k D = X ≔  Typ.instantiateRecCap T k D := by simp [instantiateRecCap]
+  @[simp] lemma instantiateRecCap_val {x : Atom (.var i)} {T : Typ i} : instantiateRecCap (x ⦂ T) k D = x ⦂ Typ.instantiateRecCap T k D := by simp [instantiateRecCap]
+  @[simp] lemma instantiateRecCap_sub {X : Atom (.tvar i)} {S : Typ i} : instantiateRecCap (X <: S) k D = X <: Typ.instantiateRecCap S k D := by simp [instantiateRecCap]
+  @[simp] lemma instantiateRecCap_typ [HasFeature i type_bindings] {X : Atom (.tvar i)} {T : Typ i} : instantiateRecCap (X ≔ T) k D = X ≔ Typ.instantiateRecCap T k D := by simp [instantiateRecCap]
 
   def substituteCap (a : Assoc i) (x : Atom (.var i)) (D : Cap i) : Assoc i :=
     map (Typ.substituteCap · x D) a
 
-  @[simp] lemma substituteCap_val : substituteCap (x ⦂  T) y D = x ⦂  Typ.substituteCap T y D := by simp [substituteCap]
-  @[simp] lemma substituteCap_sub : substituteCap (X <: S) y D = X <: Typ.substituteCap S y D := by simp [substituteCap]
-  @[simp] lemma substituteCap_typ : substituteCap (X ≔  T) y D = X ≔  Typ.substituteCap T y D := by simp [substituteCap]
+  @[simp] lemma substituteCap_val {x : Atom (.var i)} {T : Typ i} : substituteCap (x ⦂ T) y D = x ⦂ Typ.substituteCap T y D := by simp [substituteCap]
+  @[simp] lemma substituteCap_sub {X : Atom (.tvar i)} {S : Typ i} : substituteCap (X <: S) y D = X <: Typ.substituteCap S y D := by simp [substituteCap]
+  @[simp] lemma substituteCap_typ [HasFeature i type_bindings] {X : Atom (.tvar i)} {T : Typ i} : substituteCap (X ≔ T) y D = X ≔ Typ.substituteCap T y D := by simp [substituteCap]
 
   def instantiateRecVar (a : Assoc i) (k : Index (.var i)) (u : Var (.var i)) : Assoc i :=
     instantiateRecCap a k {u}
 
-  @[simp] lemma instantiateRecVar_val : instantiateRecVar (x ⦂  T) k u = x ⦂  Typ.instantiateRecVar T k u := by simp [instantiateRecVar]
-  @[simp] lemma instantiateRecVar_sub : instantiateRecVar (X <: S) k u = X <: Typ.instantiateRecVar S k u := by simp [instantiateRecVar]
-  @[simp] lemma instantiateRecVar_typ : instantiateRecVar (X ≔  T) k u = X ≔  Typ.instantiateRecVar T k u := by simp [instantiateRecVar]
+  @[simp] lemma instantiateRecVar_val {x : Atom (.var i)} {T : Typ i} : instantiateRecVar (x ⦂ T) k u = x ⦂ Typ.instantiateRecVar T k u := by simp [instantiateRecVar]
+  @[simp] lemma instantiateRecVar_sub {X : Atom (.tvar i)} {S : Typ i} : instantiateRecVar (X <: S) k u = X <: Typ.instantiateRecVar S k u := by simp [instantiateRecVar]
+  @[simp] lemma instantiateRecVar_typ [HasFeature i type_bindings] {X : Atom (.tvar i)} {T : Typ i} : instantiateRecVar (X ≔ T) k u = X ≔ Typ.instantiateRecVar T k u := by simp [instantiateRecVar]
 
   def substituteVar (a : Assoc i) (x : Atom (.var i)) (u : Var (.var i)) : Assoc i :=
     substituteCap a x {u}
 
-  @[simp] lemma substituteVar_val : substituteVar (x ⦂  T) y u = x ⦂  Typ.substituteVar T y u := by simp [substituteVar]
-  @[simp] lemma substituteVar_sub : substituteVar (X <: S) y u = X <: Typ.substituteVar S y u := by simp [substituteVar]
-  @[simp] lemma substituteVar_typ : substituteVar (X ≔  T) y u = X ≔  Typ.substituteVar T y u := by simp [substituteVar]
+  @[simp] lemma substituteVar_val {x : Atom (.var i)} {T : Typ i} : substituteVar (x ⦂ T) y u = x ⦂ Typ.substituteVar T y u := by simp [substituteVar]
+  @[simp] lemma substituteVar_sub {X : Atom (.tvar i)} {S : Typ i} : substituteVar (X <: S) y u = X <: Typ.substituteVar S y u := by simp [substituteVar]
+  @[simp] lemma substituteVar_typ [HasFeature i type_bindings] {X : Atom (.tvar i)} {T : Typ i} : substituteVar (X ≔ T) y u = X ≔ Typ.substituteVar T y u := by simp [substituteVar]
 
   instance instScopedVar : Scoped (Assoc i) (.var i) where
     instantiateRec := instantiateRecVar

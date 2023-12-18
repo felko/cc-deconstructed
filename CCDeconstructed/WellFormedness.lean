@@ -134,7 +134,7 @@ end Cap.WellFormed
 @[aesop unsafe]
 inductive Typ.WellFormed : Env i → Typ i → Prop where
   | var {Γ : Env i} {X : Atom (.tvar i)} {T : Typ i} :
-      X <: T ∈ Γ ∨ X ≔ T ∈ Γ →
+      X <: T ∈ Γ ∨ (∃ (inst : HasFeature i type_bindings), X ≔ T ∈ Γ) →
       Typ.WellFormed Γ X
   | top {Γ : Env i} :
       Typ.WellFormed Γ .top
@@ -144,7 +144,7 @@ inductive Typ.WellFormed : Env i → Typ i → Prop where
       Cap.WellFormed Γ C →
       (∀ x ∉ L, Typ.WellFormed (Γ ▷ x ⦂ .cap S C) (Typ.instantiateRecVar U 0 x)) →
       Typ.WellFormed Γ (.arr (.cap S C) U)
-  | all {Γ : Env i} {k : TypevarKind i} {S U : Typ i} (L : Finset (Atom (.tvar i))) :
+  | all {Γ : Env i} {k : TypeVarKind i} {S U : Typ i} (L : Finset (Atom (.tvar i))) :
       Typ.WellFormed Γ S →
       Typ.Shape S →
       (∀ X ∉ L, Typ.WellFormed (Γ ▷ X <: S) (Typ.instantiateRecTyp U 0 X)) →
@@ -192,11 +192,11 @@ namespace Typ.WellFormed
       apply WellFormed.var (T := T)
       simp at X.Mem
       simp
-      rcases X.Mem with ⟨⟨X.Mem⟩ | ⟨X.Mem⟩⟩ | ⟨⟨X.Mem⟩ | ⟨X.Mem⟩⟩
+      rcases X.Mem with ⟨⟨X.Mem⟩ | ⟨X.Mem⟩⟩ | ⟨HasTypeBindings, ⟨X.Mem⟩ | ⟨X.Mem⟩⟩
       · exact Or.inl (Or.inl (Or.inl X.Mem))
       · exact Or.inl (Or.inr X.Mem)
-      · exact Or.inr (Or.inl (Or.inl X.Mem))
-      · exact Or.inr (Or.inr X.Mem)
+      · exact Or.inr ⟨HasTypeBindings, Or.inl (Or.inl X.Mem)⟩
+      · exact Or.inr ⟨HasTypeBindings, Or.inr X.Mem⟩
     · case top => constructor
     · case arr S C U L S.Shape S.WF C.WF U.WF S.IH U.IH =>
       apply WellFormed.arr (L ∪ dom Γ ∪ dom Θ ∪ dom Δ)
@@ -241,7 +241,7 @@ namespace Typ.WellFormed
     induction WF generalizing Δ <;> cases Eq.gen
     · case var X S' X.Mem =>
       simp at X.Mem
-      rcases X.Mem with ⟨⟨⟨X.MemΓ⟩ | ⟨Eq⟩⟩ | ⟨X.MemΔ⟩⟩ | ⟨⟨⟨X.MemΓ⟩ | ⟨Eq⟩⟩ | ⟨X.MemΔ⟩⟩
+      rcases X.Mem with ⟨⟨⟨X.MemΓ⟩ | ⟨Eq⟩⟩ | ⟨X.MemΔ⟩⟩ | ⟨_, ⟨⟨X.MemΓ⟩ | ⟨Eq⟩⟩ | ⟨X.MemΔ⟩⟩
       · apply WellFormed.var
         aesop
       · simp [Assoc.sub] at Eq
@@ -365,7 +365,7 @@ namespace Typ.WellFormed
       exact Finset.union_subset S.IH (Cap.WellFormed.fv_subset_dom C.WF)
 
   @[aesop unsafe]
-  lemma fvTyp_subset_dom :
+  lemma fvTyp_subset_dom {Γ : Env i} {T : Typ i} :
     WellFormed Γ T →
     fvTyp T ⊆ dom Γ
   := by
@@ -375,8 +375,10 @@ namespace Typ.WellFormed
       rcases X.Mem with ⟨X.Mem⟩ | ⟨X.Mem⟩
       · apply Env.dom_mem_iff.mpr
         exists .sub, T
-      · apply Env.dom_mem_iff.mpr
-        exists .typ, T
+      · decide HasTypeBindings : HasFeature i type_bindings
+        · simp [HasTypeBindings] at X.Mem
+        · apply Env.dom_mem_iff.mpr
+          exists .typ, T
     · case arr Γ S C U L S.WF S.Shape C.WF U.WF S.IH U.IH =>
       have C.Subset : Cap.fv C ⊆ dom Γ :=
         Cap.WellFormed.fv_subset_dom C.WF
@@ -699,7 +701,7 @@ namespace Env.WellFormed
     simp
     apply inversion_sub Θ.WF
 
-  lemma inversion_typ {Γ Δ : Env i} {X : Atom (.tvar i)} {U : Typ i} :
+  lemma inversion_typ [HasFeature i type_bindings] {Γ Δ : Env i} {X : Atom (.tvar i)} {U : Typ i} :
     WellFormed (Γ ▷ X ≔ U ++ Δ) →
       Typ.WellFormed Γ U
     ∧ X ∉ Typ.fvTyp U
@@ -728,7 +730,7 @@ namespace Env.WellFormed
       cases Eq.a
       apply IH rfl
 
-  lemma split_typ {Θ : Env i} {X : Atom (.tvar i)} {U : Typ i} :
+  lemma split_typ [HasFeature i type_bindings] {Θ : Env i} {X : Atom (.tvar i)} {U : Typ i} :
     WellFormed Θ →
     X ≔ U ∈ Θ →
     ∃ Γ Δ, Θ = Γ ▷ X ≔ U ++ Δ
@@ -811,7 +813,7 @@ namespace Env.Nodup
         cases a <;> simp [Assoc.substituteTyp] at * <;> aesop
 
   @[aesop safe]
-  lemma substitutionTyp :
+  lemma substitutionTyp [HasFeature i type_bindings] {Γ Δ : Env i} {Z : Atom (.tvar i)} {U : Typ i}:
     Nodup (Γ ▷ Z ≔ U ++ Δ) →
     Nodup (Γ ++ Δ.substituteTyp Z U)
   := by
@@ -954,10 +956,8 @@ namespace Typ.WellFormed
     induction T.WF generalizing Δ <;> cases Eq.gen <;> simp [substituteVar]
     · case var X T X.Mem =>
       simp at X.Mem
-      rcases X.Mem with ⟨X.Mem⟩ | ⟨X.Mem⟩
-      all_goals {
-        rcases X.Mem with ⟨X.Mem⟩ | ⟨X.Mem⟩ <;> apply var <;> aesop
-      }
+      rcases X.Mem with ⟨⟨X.Mem⟩ | ⟨X.Mem⟩⟩ | ⟨_, ⟨X.Mem⟩ | ⟨X.Mem⟩⟩
+        <;> apply var <;> aesop
     · case top =>
       exact top
     · case arr S C T L S.Shape S.WF C.WF T.WF S.IH T.IH =>
@@ -1025,7 +1025,7 @@ namespace Typ.WellFormed
       · exact Env.Nodup.substitutionSub nodup
     · case inr Neq =>
       simp [Neq] at X.Mem
-      rcases X.Mem with ⟨⟨X.Mem⟩ | ⟨X.Mem⟩⟩ | ⟨⟨X.Mem⟩ | ⟨X.Mem⟩⟩
+      rcases X.Mem with ⟨⟨X.Mem⟩ | ⟨X.Mem⟩⟩ | ⟨HasTypeBindings, ⟨X.Mem⟩ | ⟨X.Mem⟩⟩
       · apply var (T := T)
         simp
         apply Or.inl (Or.inl X.Mem)
@@ -1035,10 +1035,12 @@ namespace Typ.WellFormed
         exists { cat := VarCat.tvar i, name := X, binding := Binding.sub, type := T }
       · apply var (T := T)
         simp
-        apply Or.inr (Or.inl X.Mem)
+        apply Or.inr ⟨HasTypeBindings, Or.inl X.Mem⟩
       · apply var (T := substituteTyp T Z U)
         simp
-        apply Or.inr (Or.inr _)
+        apply Or.inr
+        exists HasTypeBindings
+        apply Or.inr
         exists { cat := VarCat.tvar i, name := X, binding := Binding.typ, type := T }
 
   @[aesop safe apply]

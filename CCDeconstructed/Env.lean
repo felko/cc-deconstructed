@@ -4,8 +4,6 @@ import CCDeconstructed.Syntax
 
 import Mathlib.Data.Finset.Basic
 
-set_option linter.unusedVariables false
-
 open VarCat Feature
 
 inductive Binding {i : CC} : VarCat i → Type where
@@ -31,37 +29,37 @@ namespace Assoc
     ⟨_, X, .sub, S⟩
 
   @[match_pattern]
-  def typ (X : Atom (.tvar i)) (T : Typ i) : Assoc i :=
+  def typ [HasFeature i type_bindings] (X : Atom (.tvar i)) (T : Typ i) : Assoc i :=
     ⟨_, X, .typ, T⟩
 
   infix:80 " ⦂ " => val
   infix:80 " <: " => sub
   infix:80 " ≔ " => typ
 
-  @[simp] lemma val_name : (x ⦂ T).name = x := rfl
-  @[simp] lemma sub_name : (X <: S).name = X := rfl
-  @[simp] lemma typ_name : (X ≔ T).name = X := rfl
+  @[simp] lemma val_name {x : Atom (.var i)} {T : Typ i}                               : (x ⦂  T).name = x := rfl
+  @[simp] lemma sub_name {X : Atom (.tvar i)} {S : Typ i}                              : (X <: S).name = X := rfl
+  @[simp] lemma typ_name [HasFeature i type_bindings] {X : Atom (.tvar i)} {T : Typ i} : (X ≔  T).name = X := rfl
 
-  @[simp] lemma val_typ : (x ⦂ T).type = T := rfl
-  @[simp] lemma sub_typ : (X <: S).type = S := rfl
-  @[simp] lemma typ_typ : (X ≔ T).type = T := rfl
+  @[simp] lemma val_typ {x : Atom (.var i)} {T : Typ i}                               : (x ⦂ T).type = T := rfl
+  @[simp] lemma sub_typ {X : Atom (.tvar i)} {S : Typ i}                              : (X <: S).type = S := rfl
+  @[simp] lemma typ_typ [HasFeature i type_bindings] {X : Atom (.tvar i)} {T : Typ i} : (X ≔ T).type = T := rfl
 
-  @[simp] lemma val_cat : (x ⦂ T).cat = .var _ := rfl
-  @[simp] lemma sub_cat : (X <: S).cat = .tvar _ := rfl
-  @[simp] lemma typ_cat : (X ≔ T).cat = .tvar _ := rfl
+  @[simp] lemma val_cat {x : Atom (.var i)} {T : Typ i}                               : (x ⦂ T).cat = .var _ := rfl
+  @[simp] lemma sub_cat {X : Atom (.tvar i)} {S : Typ i}                              : (X <: S).cat = .tvar _ := rfl
+  @[simp] lemma typ_cat [HasFeature i type_bindings] {X : Atom (.tvar i)} {T : Typ i} : (X ≔ T).cat = .tvar _ := rfl
 
   def map (f : Typ i → Typ i) : Assoc i → Assoc i
     | ⟨α, x, b, T⟩ => ⟨α, x, b, f T⟩
 
-  @[simp] lemma val_map : map f (x ⦂ T) = (x ⦂ f T) := rfl
-  @[simp] lemma sub_map : map f (X <: S) = (X <: f S) := rfl
-  @[simp] lemma typ_map : map f (X ≔ T) = (X ≔ f T) := rfl
+  @[simp] lemma val_map {x : Atom (.var i)} {T : Typ i}                               : map f (x ⦂ T) = (x ⦂ f T) := rfl
+  @[simp] lemma sub_map {X : Atom (.tvar i)} {S : Typ i}                              : map f (X <: S) = (X <: f S) := rfl
+  @[simp] lemma typ_map [HasFeature i type_bindings] {X : Atom (.tvar i)} {T : Typ i} : map f (X ≔ T) = (X ≔ f T) := rfl
 
   @[elab_as_elim,eliminator]
   lemma rec_binding.{u} {i : CC} {motive : Assoc i → Sort u}
-    (val : ∀ x T, motive (x ⦂ T))
-    (sub : ∀ X S, motive (X <: S))
-    (typ : ∀ X T, motive (X ≔ T))
+    (val : ∀ (x : Atom (.var i)) (T : Typ i), motive (x ⦂ T))
+    (sub : ∀ (X : Atom (.tvar i)) (S : Typ i), motive (X <: S))
+    (typ : ∀ [HasFeature i type_bindings] (X : Atom (.tvar i)) (T : Typ i), motive (X ≔ T))
     : ∀ a, motive a
   := by
     intros a
@@ -116,16 +114,16 @@ namespace Assoc
       injection Eq.assoc with Eq.cat _ _ _
       exact Neq.cat Eq.cat
 
-  @[simp] lemma val_neq_sub : x ⦂ T  ≠ y <: U := by simp [val,sub]
-  @[simp] lemma sub_neq_val : x <: T ≠ y ⦂  U := by simp [val,sub]
-  @[simp] lemma val_neq_typ : x ⦂ T  ≠ y ≔  U := by simp [val,typ]
-  @[simp] lemma typ_neq_val : x ≔ T  ≠ y ⦂  U := by simp [val,typ]
-  @[simp] lemma sub_neq_typ : x <: T ≠ y ≔  U := by simp [sub,typ]
-  @[simp] lemma typ_neq_sub : x ≔ T  ≠ y <: U := by simp [sub,typ]
+  @[simp] lemma val_neq_sub {x : Atom (.var i)} {T : Typ i} {y : Atom (.tvar i)} {U : Typ i} : x ⦂ T ≠ y <: U := by simp [val,sub]
+  @[simp] lemma sub_neq_val {x : Atom (.tvar i)} {T : Typ i} {y : Atom (.var i)} {U : Typ i} : x <: T ≠ y ⦂ U := by simp [val,sub]
+  @[simp] lemma val_neq_typ [HasFeature i type_bindings] {x : Atom (.var i)} {T : Typ i} {y : Atom (.tvar i)} {U : Typ i} : x ⦂ T ≠ y ≔ U := by simp [val,typ]
+  @[simp] lemma typ_neq_val [HasFeature i type_bindings] {x : Atom (.tvar i)} {T : Typ i} {y : Atom (.var i)} {U : Typ i} : x ≔ T  ≠ y ⦂ U := by simp [val,typ]
+  @[simp] lemma sub_neq_typ [HasFeature i type_bindings] {x : Atom (.tvar i)} {T : Typ i} {y : Atom (.tvar i)} {U : Typ i} : x <: T ≠ y ≔ U := by simp [sub,typ]
+  @[simp] lemma typ_neq_sub [HasFeature i type_bindings] {x : Atom (.tvar i)} {T : Typ i} {y : Atom (.tvar i)} {U : Typ i} : x ≔ T  ≠ y <: U := by simp [sub,typ]
 
-  @[simp] lemma val_eq_val_inj : x ⦂  T = y ⦂  U ↔ x = y ∧ T = U := by simp [val]
-  @[simp] lemma sub_eq_sub_inj : x <: T = y <: U ↔ x = y ∧ T = U := by simp [sub]
-  @[simp] lemma typ_eq_typ_inj : x ≔  T = y ≔  U ↔ x = y ∧ T = U := by simp [typ]
+  @[simp] lemma val_eq_val_inj {x y : Atom (.var i)} {T U : Typ i} : x ⦂ T = y ⦂ U ↔ x = y ∧ T = U := by simp [val]
+  @[simp] lemma sub_eq_sub_inj {x y : Atom (.tvar i)} {T U : Typ i} : x <: T = y <: U ↔ x = y ∧ T = U := by simp [sub]
+  @[simp] lemma typ_eq_typ_inj [HasFeature i type_bindings] {x y : Atom (.tvar i)} {T U : Typ i} : x ≔  T = y ≔ U ↔ x = y ∧ T = U := by simp [typ]
 end Assoc
 
 def Env (i : CC) : Type := List (Assoc i)
@@ -523,8 +521,8 @@ namespace Env
     lemma rec.{u} {motive : (Γ : Env i) → Nodup Γ → Sort u}
       (nil : motive ∅ Nodup.nil)
       (cons : ∀ {Γ : Env i} {a : Assoc i} {nodup : Nodup Γ}
-                (NotIn : a.name ∉ dom Γ)
-                (IH : motive Γ nodup),
+                (NotIn : a.name ∉ dom Γ),
+                motive Γ nodup →
                 motive (Γ ▷ a) (Nodup.cons nodup NotIn))
       : ∀ {Γ}, (nodup : Nodup Γ) → motive Γ nodup
     := by
@@ -547,7 +545,7 @@ namespace Env
     := by
       intros Nodup Mem₁ Mem₂
       induction Nodup generalizing α x b₁ b₂ T₁ T₂ <;> simp at *
-      case cons Γ c Nodup c.NotIn IH =>
+      case cons Γ c _ c.NotIn IH =>
       cases Mem₁ <;> cases Mem₂
       · case inl.inl Mem₁ Mem₂ =>
         exact IH Mem₁ Mem₂

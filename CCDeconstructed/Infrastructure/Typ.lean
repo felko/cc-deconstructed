@@ -6,7 +6,7 @@ import CCDeconstructed.Infrastructure.Cap
 
 set_option linter.unusedVariables false
 
-open Scoped FreeVariables VarCat
+open Scoped Feature FreeVariables VarCat
 
 namespace Typ
   instance : Coe (Var (.tvar i)) (Typ i) where
@@ -119,11 +119,11 @@ namespace Typ
           Cap.WellScoped C →
           (∀ x ∉ L, Typ.Type (Typ.instantiateRecVar U 0 x)) →
           Typ.Shape (.arr (.cap S C) U)
-      | all {k : TypevarKind i} {S : Typ i} {U : Typ i} (L : Finset (Atom (.tvar i))) :
+      | all {k : TypeVarKind i} {S : Typ i} {U : Typ i} (L : Finset (Atom (.tvar i))) :
           Typ.Shape S →
           (∀ X ∉ L, Typ.Type (Typ.instantiateRecTyp U 0 (.var (.free X)))) →
           Typ.Shape (.all k S U)
-      | box [HasFeature i .box_type] :
+      | box [HasFeature i box_type] :
           Typ.Type T →
           Typ.Shape (@Typ.box i _ T)
   end
@@ -736,11 +736,4 @@ namespace Typ
     · simp [Cap.WellScoped]
       exact Var.WellScoped.map_allowCap (by simp) u.WS
     · exact S.Shape
-
-  def dcs : Typ i → Cap i
-    | .cap S C => Typ.dcs S ∪ C
-    | .arr _ U => Typ.dcs U
-    | .all _ _ U => Typ.dcs U
-    | @Typ.box _ _ T => Typ.dcs T
-    | _ => ∅
 end Typ
